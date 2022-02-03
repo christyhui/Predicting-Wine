@@ -1,0 +1,424 @@
+---
+title: "Stats 101C Homework 3"
+author: "Christy Hui | 905317527"
+date: "Due 10/22/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+Preparing for Problem 1
+
+``` {r}
+# set birthday seed
+set.seed(0213)
+# make wine data
+wine = read.csv("Wine Fall 2021.csv")
+dim(wine)
+# make wine.color numbers to ensure compatibility
+wine$Wine.Color = replace(wine$Wine.Color, wine$Wine.Color == "W", 0) # white is 0
+wine$Wine.Color = replace(wine$Wine.Color, wine$Wine.Color == "R", 1) # red is 1
+# split data
+library(caTools)
+wine_split = sample.split(wine[,14], SplitRatio = 0.70)
+wine_train = wine[wine_split == TRUE,]
+wine_test = wine[wine_split == FALSE,]
+dim(wine_train)
+dim(wine_test)
+```
+
+### Part A
+
+Make Logistic Model
+
+``` {r}
+library(caret)
+wine_glm = glm(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+               family = binomial,
+               data = wine_train)
+```
+
+Test Logistic Model With Training Data
+
+``` {r}
+# training conf matrix
+wine_glm_pred = predict(wine_glm, newdata = wine_train, type = "response")
+wine_glm_vec = rep("Good", 7000)
+wine_glm_vec[wine_glm_pred < 0.5] = "Bad"
+confusionMatrix(as.factor(wine_glm_vec), as.factor(wine_train[, 14]))
+```
+
+Test Logistic Model With Testing Data
+
+``` {r}
+# testing conf matrix
+wine_glm_pred = predict(wine_glm, newdata = wine_test, type = "response")
+wine_glm_vec = rep("Good", 3000)
+wine_glm_vec[wine_glm_pred < 0.5] = "Bad"
+confusionMatrix(as.factor(wine_glm_vec), as.factor(wine_test[, 14]))
+```
+
+### Part B
+
+Make LDA Model
+
+``` {r}
+library(MASS)
+wine_lda = lda(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+               data = wine_train)
+```
+
+Test LDA Model with Training Data
+
+``` {r}
+# training conf matrix
+wine_lda_pred = predict(wine_lda, newdata = wine_train)
+confusionMatrix(as.factor(wine_lda_pred$class), as.factor(wine_train[, 14]))
+```
+
+Test LDA Model with Testing Data
+
+```{r}
+# testing conf matrix
+wine_lda_pred = predict(wine_lda, newdata = wine_test)
+confusionMatrix(as.factor(wine_lda_pred$class), as.factor(wine_test[, 14]))
+```
+
+### Part C
+
+Make QDA Model
+
+``` {r}
+wine_qda = qda(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+               data = wine_train)
+```
+
+Test QDA Model with Training Data
+
+``` {r}
+# training conf matrix
+wine_qda_pred = predict(wine_qda, newdata = wine_train)
+confusionMatrix(as.factor(wine_qda_pred$class), as.factor(wine_train[, 14]))
+```
+
+Test QDA Model with Testing Data
+
+``` {r}
+# testing conf matrix
+wine_qda_pred = predict(wine_qda, newdata = wine_test)
+confusionMatrix(as.factor(wine_qda_pred$class), as.factor(wine_test[, 14]))
+```
+
+### Part D
+
+Make KNN Model
+
+``` {r}
+library(class)
+# recreate x_train but scale everything except non numeric arguments
+wine_scaled_train = data.frame(X = wine_train$X, Wine.Color = wine_train$Wine.Color, scale(wine_train[, c(-1, -2, -14)]), Class = wine_train$Class)
+wine_scaled_test = data.frame(X = wine_test$X, Wine.Color = wine_test$Wine.Color, scale(wine_test[, c(-1, -2, -14)]), Class = wine_test$Class)
+# make knn model
+wine_knn_train = knn(wine_scaled_train[, c(-1, -2, -14)], wine_scaled_train[, c(-1, -2, -14)], wine_scaled_train[, 14], k = 25)
+wine_knn_test = knn(wine_scaled_train[, c(-1, -2, -14)], wine_scaled_test[, c(-1, -2, -14)], wine_scaled_train[, 14], k = 25)
+```
+
+Test KNN Model with Training Data
+
+``` {r}
+# training conf matrix
+confusionMatrix(as.factor(wine_knn_train), as.factor(wine_train[, 14]))
+```
+
+Test KNN Model with Testing Data
+
+``` {r}
+# testing conf matrix
+confusionMatrix(as.factor(wine_knn_test), as.factor(wine_test[, 14]))
+```
+
+### Part E
+
+``` {r}
+wine_log_train_acc = (2372 + 2131)/7000
+wine_log_test_acc = (1005 + 901)/3000
+wine_lda_train_acc = (2384 + 2123)/7000
+wine_lda_test_acc = (1008 + 899)/3000
+wine_qda_train_acc = (1859 + 2566)/7000
+wine_qda_test_acc = (802 + 1093)/3000
+wine_knn_train_acc = (3435 + 3343)/7000
+wine_knn_test_acc = (1289 + 1228)/3000
+
+# plot accuracies so it is easier to see
+model_num = c(wine_log_train_acc, wine_log_test_acc, wine_lda_train_acc, wine_lda_test_acc, wine_qda_train_acc, wine_qda_test_acc, wine_knn_train_acc, wine_knn_test_acc)
+
+plot(model_num, xlab = "Models", ylab = "Accuracy Rate", xaxt = "n")
+axis(1, at = 1:8, labels = c("wine_log_train_acc", "wine_log_test_acc", "wine_lda_train_acc", "wine_lda_test_acc", "wine_qda_train_acc", "wine_qda_test_acc", "wine_knn_train_acc", "wine_knn_test_acc"))
+```
+
+Looking at the accuracy points, it is clear that the KNN model does the best out of the rest. Whereas the training and testing data for the logistic, lda, and qda models all hover below 70%, the KNN training model has an accuracy above 95% (and its testing model having an accuracy of a little less than 85%). This shows that on average, the dataset is very complicated and that the KNN performs the best when trying to predict whether a wine bottle is "Good" oir "Bad."
+
+``` {r}
+# plot only training accuracies
+model_num = c(wine_log_train_acc, wine_lda_train_acc, wine_qda_train_acc, wine_knn_train_acc)
+
+plot(model_num, xlab = "Training Models", ylab = "Accuracy Rate", xaxt = "n")
+axis(1, at = 1:4, labels = c("wine_log_train_acc", "wine_lda_train_acc", "wine_qda_train_acc", "wine_knn_train_acc"))
+```
+
+Looking more closly at jsut the training data, we see what was touched on previously even more pronounced. Whereas the training data for the logistic, LDA, and QDA models are around 65%, the KNN model has an accuracy rate 30% more than its competitors.
+
+``` {r}
+# plot only testing accuracies
+model_num = c(wine_log_test_acc, wine_lda_test_acc, wine_qda_test_acc, wine_knn_test_acc)
+
+plot(model_num, xlab = "Testing Models", ylab = "Accuracy Rate", xaxt = "n")
+axis(1, at = 1:4, labels = c("wine_log_test_acc", "wine_lda_test_acc", "wine_qda_test_acc", "wine_knn_test_acc"))
+```
+
+Looking at the most important data sets (the testing data set), we see that the KNN model does the best out of the other three models.
+
+These three plots indicate that it is very difficult to determine whether a wine bottle is "Good" or "Bad" (i.e. the predictors did not do an extremely good job of determining whether or not a bottle if wine was "Good" or "Bad"). This is because the most complicated model (the KNN model) performed the best on all fronts. Furthermore, an accuracy rate of around 65% (as shown by the logistic, QDA, and LDA models) for both the three models of both testing and training data sets furhter exemplify this conclusion.
+
+## Problem 2
+
+``` {r}
+# create a smaller wine data set because wine is too large to function with
+new_wine = wine[sample(nrow(wine), 3000),]
+```
+
+### Part A
+
+``` {r}
+# create wine glm model for loocv to work
+wine_glm = glm(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+               family = binomial,
+               data = new_wine)
+library(boot)
+wine_cv_glm = cv.glm(new_wine, wine_glm)
+wine_cv_glm$delta
+```
+
+### Part B
+
+``` {r}
+# leave one out cv for LDA
+wine_cv_lda = lda(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+               data = new_wine,
+               CV = TRUE)
+confusionMatrix(as.factor(wine_cv_lda$class), as.factor(new_wine[, 14]))
+```
+
+### Part C
+
+``` {r}
+wine_cv_qda = qda(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+               data = new_wine,
+               CV = TRUE)
+confusionMatrix(as.factor(wine_cv_qda$class), as.factor(new_wine[, 14]))
+```
+
+### Part D
+
+``` {r}
+# scale non-numeric arguments
+new_wine_scaled = data.frame(X = new_wine$X, Wine.Color = new_wine$Wine.Color, scale(new_wine[, c(-1, -2, -14)]), Class = new_wine$Class)
+
+# make knn model
+wine_knn_cv = knn.cv(train = new_wine_scaled[, c(-1, -2, -14)], cl = new_wine_scaled[, 14], k = 25)
+
+confusionMatrix(as.factor(wine_knn_cv), as.factor(new_wine_scaled[, 14]))
+```
+
+### Part E
+
+``` {r}
+wine_glm_mse = wine_cv_glm$delta
+wine_lda_acc = (956 + 964)/3000
+wine_qda_acc = (841 + 1066)/3000
+wine_knn_acc = (952 + 986)/3000
+
+# plot accuracies so it is easier to see
+model_num = c(wine_lda_acc, wine_qda_acc, wine_knn_acc)
+wine_glm_mse
+plot(model_num, xlab = "Models", ylab = "Accuracy Rate", xaxt = "n")
+axis(1, at = 1:3, labels = c("wine_lda_acc", "wine_qda_acc", "wine_knn_acc"))
+```
+
+Looking at the plot (which disregards the MSE from the LOOCV logistics model), we can see that the accuracy rates for the three classification models are poor (like number 1, they hover around 65% or less). This shows that leave-one-out cross validation did not help the model perform better. In the case of KNN, it made the model perform worse (KNN now has an accuracy rate of a bit over 65%, as opposed to its near 85% when tested on the testing data set in number 1). Looking at the MSE for the logistic cross validation method, we see an MSE of 0.2267057 and 0.2265990, which is also very poor. This shows that the LOOCV method for all methods (logistic, LDA, QDA, and KNN) performs badly. This may be because the wine data set predictors do not serve as good predictors for determining whether a wine is "Good" or "Bad."
+
+## Problem 3
+
+### Part A
+
+``` {r}
+# create wine glm model for cv to work
+wine_glm = glm(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+               family = binomial,
+               data = new_wine)
+library(boot)
+
+wine_cv10_glm = cv.glm(new_wine, wine_glm, K = 10)
+wine_cv10_glm$delta
+```
+
+### Part B
+
+``` {r}
+# function "train" from caret library can do lda and qda with a number of folds
+library(caret)
+wine_cv10_lda = train(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+                      data = new_wine,
+                      method = "lda",
+                      trControl = trainControl(method = "cv", number = 10),
+                      metric = "Accuracy")
+wine_cv10_lda_pred = predict(wine_cv10_lda, new_wine[, c(-1, -14)])
+confusionMatrix(as.factor(wine_cv10_lda_pred), as.factor(new_wine[, 14]))
+```
+
+### Part C
+
+``` {r}
+# train function from library caret can do qda with multiple folds
+wine_cv10_qda = train(as.factor(Class) ~ Wine.Color + fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol,
+                      data = new_wine,
+                      method = "qda",
+                      trControl = trainControl(method = "cv", number = 10),
+                      metric = "Accuracy")
+wine_cv10_qda_pred = predict.train(wine_cv10_qda, new_wine[, c(-1, -14)])
+confusionMatrix(as.factor(wine_cv10_qda_pred), as.factor(new_wine[, 14]))
+```
+
+### Part D
+
+``` {r}
+wine_cv10_knn = train(x = new_wine_scaled[, c(-1, -2, -14)],
+                      y = new_wine_scaled[, 14],
+                      method = "knn", 
+                      tuneGrid = data.frame(k = 25),
+                      trControl = trainControl(method = "cv", number = 10),
+                      metric = "Accuracy")
+wine_cv10_knn_pred = predict(wine_cv10_knn, new_wine[, c(-1, -2, -14)])
+confusionMatrix(as.factor(wine_cv10_knn_pred), as.factor(new_wine[, 14]))
+```
+
+### Part E
+
+``` {r}
+wine_glm_mse = wine_cv10_glm$delta
+wine_lda_acc = (960 + 967)/3000
+wine_qda_acc = (852 + 1084)/3000
+wine_knn_acc = (1306 + 184)/3000
+
+# plot accuracies so it is easier to see
+model_num = c(wine_lda_acc, wine_qda_acc, wine_knn_acc)
+wine_glm_mse
+plot(model_num, xlab = "Models", ylab = "Accuracy Rate", xaxt = "n")
+axis(1, at = 1:3, labels = c("wine_lda_acc", "wine_qda_acc", "wine_knn_acc"))
+```
+
+Instead of LOOCV, this problem is concerned with 10-folds (rather than N-folds). Interestingly enough, the accuracy results of 10-folds is better than the LOOCV (for LDA and QDA). However, the MSE for this logistic model is 0.2267057 and 0.2265990 (the same MSE for LOOCV). For KNN, 10-Fold KNN actually did a lot worse (10%+ worse).
+
+## Problem 4
+
+``` {r}
+set.seed(1128)
+births = read.csv("births 10000 Ob F2021.csv")
+# delete variables that will not help with predicting outcome variables
+births = births[, -c(3, 4, 5, 6, 17, 18, 19)]
+# omit NAs
+births = na.omit(births)
+# resize births so the data is more manageable
+birthsNew = births[sample(nrow(births), 3000),]
+names(birthsNew)[35] = "Birth.Weight"
+```
+
+### Part A
+
+```{r}
+library(car)
+symbox(~Birth.Weight, data = birthsNew)
+inverseResponsePlot(lm(Birth.Weight ~ ., data = birthsNew))
+```
+
+Both plots show that a lambda of 1 (i.e. keeping the response variable the same and not transforming the equation) will be best for the response variable.
+
+### Part B
+
+Backwards Stepwise with Mallows-CP (AIC)
+
+``` {r}
+births_lm = lm(Birth.Weight ~., data = birthsNew)
+library(stats)
+back_reg = step(births_lm,
+                direction = "backward",
+                k = 2)
+back_reg$terms
+```
+
+### Part C
+
+Backwards Stepwise with BIC
+
+``` {r}
+births_lm = lm(Birth.Weight ~., data = birthsNew)
+library(stats)
+back_reg = step(births_lm,
+                direction = "backward",
+                k = log(3000))
+back_reg$terms
+```
+
+### Part D
+
+Fowards Stepwise with Mallows-CP (AIC)
+
+``` {r}
+births_lm = lm(Birth.Weight ~ 1, data = birthsNew)
+library(stats)
+forwards_reg = step(births_lm,
+                scope = list(lower = ~1, upper = ~Institution.type + Plurality.of.birth + Gender + Race.of.child + Race + Age.of.father + Age.of.mother + Education.of.father..years. + Education.of.mother..years. + Total.Preg + BDead + Terms + LOutcome + Weeks + Prenatal + Trimester.Prenatal + Visits + Birth.weight.group + Marital + Birth.Attendant + Numchild + Month.Term + Year.Term + Low.Birth + RaceMom + RaceDad + Mother.Minority + Father.Minority + HispMom + HispDad + AveCigs + Smoker + AveDrink + Wt.Gain),
+                direction = "forward",
+                data = birthsNew,
+                k = 2)
+forwards_reg$terms
+```
+
+Forwards Stepwise with BIC
+
+### Part E
+
+``` {r}
+births_lm = lm(Birth.Weight ~ 1, data = birthsNew)
+library(stats)
+forwards_reg = step(births_lm,
+                scope = list(lower = ~1, upper = ~Institution.type + Plurality.of.birth + Gender + Race.of.child + Race + Age.of.father + Age.of.mother + Education.of.father..years. + Education.of.mother..years. + Total.Preg + BDead + Terms + LOutcome + Weeks + Prenatal + Trimester.Prenatal + Visits + Birth.weight.group + Marital + Birth.Attendant + Numchild + Month.Term + Year.Term + Low.Birth + RaceMom + RaceDad + Mother.Minority + Father.Minority + HispMom + HispDad + AveCigs + Smoker + AveDrink + Wt.Gain),
+                direction = "forward",
+                data = birthsNew,
+                k = log(3000))
+forwards_reg$terms
+```
+
+By the end of the functions, we see these formulas:
+
+##### Backwards Mallows-CP:
+
+Birth.Weight ~ Plurality.of.birth + BDead + LOutcome + Weeks + Visits + Birth.weight.group + Birth.Attendant + Father.Minority + HispMom + HispDad + Smoker + Wt.Gain
+
+##### Backwards BIC:
+
+Birth.Weight ~ Weeks + Birth.weight.group + Father.Minority + Smoker
+
+##### Forwards Mallows-CP:
+
+Birth.Weight ~ Birth.weight.group + Weeks + Smoker + Father.Minority + Plurality.of.birth + Wt.Gain + LOutcome + Birth.Attendant + BDead + Visits
+
+##### Forwards BIC:
+
+Birth.Weight ~ Birth.weight.group + Weeks + Smoker + Father.Minority
+
+We see that the Backwards Mallows-CP has a total of 12 predictors. This is the most predictors of the four. Backwards BIC calls for a total number of 4 predictors (tied for the least). Forwards Mallows-CP needs 10 predictors and Forwards BIC calls for 4 predictors (like Backwards BIC). Interestingly enough, both BIC (forwards and backwards) call for the same 4 predictors (Weeks, Birth.weight.group, Father.Minority, and Smoker). Notice that these predictors are also in Forwards and Backwards Mallows-CP. Thus, we conclude that the best predictors are Weeks, Birth.weight.group, Father.Minority, and Smoker.
